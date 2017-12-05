@@ -518,19 +518,23 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 		{
 			switch (src_bpp)
 			{
-			case 1: {
+			case 1:
+			{
 				switch (dst_bpp)
 				{
-				case 1: {
+				case 1:
+				{
 					dst_buff[dst_pos] = src_buff[src_pos];
 				} break;
-				case 2: {
+				case 2:
+				{
 					dst_buff[dst_pos * 2 + 0] = src_buff[src_pos];
 					dst_buff[dst_pos * 2 + 1] = 255;
 				} break;
 				}
 			} break;
-			case 2: {
+			case 2:
+			{
 				switch (dst_bpp)
 				{
 				case 2: {
@@ -545,10 +549,12 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 		{
 			switch (src_bpp)
 			{
-			case 1: {
+			case 1:
+			{
 				switch (dst_bpp)
 				{
-				case 3: {
+				case 3:
+				{
 					auto const col = palette[src_buff[src_pos]];
 					dst_buff[dst_pos * 3 + 0] = col.b;
 					dst_buff[dst_pos * 3 + 1] = col.g;
@@ -563,10 +569,12 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 				} break;
 				}
 			} break;
-			case 2: {
+			case 2:
+			{
 				switch (dst_bpp)
 				{
-				case 3: {
+				case 3: 
+				{
 					if (src_buff[src_pos * 2 + 1] > 0)
 					{
 						auto const col = palette[src_buff[src_pos * 2 + 0]];
@@ -575,7 +583,8 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 						dst_buff[dst_pos * 3 + 2] = col.r;
 					}
 				} break;
-				case 4: {
+				case 4:
+				{
 					if (src_buff[src_pos * 2 + 1] > 0)
 					{
 						auto const col = palette[src_buff[src_pos * 2 + 0]];
@@ -596,10 +605,12 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 		{
 			switch (src_bpp)
 			{
-			case 3: {
+			case 3: 
+			{
 				switch (dst_bpp)
 				{
-				case 3: {
+				case 3: 
+				{
 					if (swap)
 					{
 						dst_buff[dst_pos * 3 + 0] = src_buff[src_pos * 3 + 2];
@@ -613,7 +624,8 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 						dst_buff[dst_pos * 3 + 2] = src_buff[src_pos * 3 + 2];
 					}
 				} break;
-				case 4: {
+				case 4:
+				{
 					if (swap)
 					{
 						dst_buff[dst_pos * 4 + 0] = src_buff[src_pos * 3 + 2];
@@ -630,10 +642,12 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 				} break;
 				}
 			} break;
-			case 4: {
+			case 4: 
+			{
 				switch (dst_bpp)
 				{
-				case 3: {
+				case 3: 
+				{
 					if (src_buff[src_pos * 4 + 3] > 0)
 					{
 						if (swap)
@@ -650,7 +664,8 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 						}
 					}
 				} break;
-				case 4: {
+				case 4: 
+				{
 					if (src_buff[src_pos * 4 + 3] > 0)
 					{
 						if (swap)
@@ -682,12 +697,14 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 			case 1: {
 				switch (dst_bpp)
 				{
-				case 3: {
+				case 3: 
+				{
 					dst_buff[dst_pos * 3 + 0] = src_buff[src_pos];
 					dst_buff[dst_pos * 3 + 1] = src_buff[src_pos];
 					dst_buff[dst_pos * 3 + 2] = src_buff[src_pos];
 				} break;
-				case 4: {
+				case 4: 
+				{
 					dst_buff[dst_pos * 4 + 0] = src_buff[src_pos];
 					dst_buff[dst_pos * 4 + 1] = src_buff[src_pos];
 					dst_buff[dst_pos * 4 + 2] = src_buff[src_pos];
@@ -695,10 +712,12 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 				} break;
 				}
 			} break;
-			case 2: {
+			case 2: 
+			{
 				switch (dst_bpp)
 				{
-				case 3: {
+				case 3: 
+				{
 					if (src_buff[src_pos * 2 + 1] > 0)
 					{
 						auto const scale = src_buff[src_pos * 2 + 0];
@@ -707,7 +726,8 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 						dst_buff[dst_pos * 3 + 2] = scale;
 					}
 				} break;
-				case 4: {
+				case 4: 
+				{
 					if (src_buff[src_pos * 2 + 1] > 0)
 					{
 						auto const scale = src_buff[src_pos * 2 + 0];
@@ -746,7 +766,7 @@ void draw(raw_layer_t const& layer, raw_layer_t& target, std::array<xcf_col_t, 2
 		}
 }
 
-void combine_layers_indexed_alpha(raw_layer_t& result, raw_layer_t* layers, size_t layer_count, size_t canvas_w, size_t canvas_h, std::array<xcf_col_t, 256> const& palette)
+void combine_layers(raw_layer_t& result, raw_layer_t* layers, size_t layer_count, size_t canvas_w, size_t canvas_h, std::array<xcf_col_t, 256> const& palette)
 {
 	for (size_t i = 0; i < layer_count; i++)
 		draw(layers[(layer_count - 1) - i], result, palette);
@@ -932,7 +952,7 @@ void import_xcf(std::ifstream& file)
 		canvas_layer.x = canvas_layer.y = 0;
 		canvas_layer.buffer = new uint8_t[width*height * 4];
 
-		combine_layers_indexed_alpha(canvas_layer, layer_buffers, layer_buffer_i, width, height, palette);
+		combine_layers(canvas_layer, layer_buffers, layer_buffer_i, width, height, palette);
 		windows.push_back(SDL_CreateWindow("COMBINE", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_SHOWN));
 		window_pixels.push_back(reinterpret_cast<uint8_t*>(SDL_GetWindowSurface(windows.back())->pixels));
 		auto pix = window_pixels.back();
