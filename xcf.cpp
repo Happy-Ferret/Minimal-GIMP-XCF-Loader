@@ -489,7 +489,7 @@ inline uint32_t tag_to_ver_num(std::string_view ver)
 		return 0;
 	else if (ver[0] == 'v')
 		return std::atoi(std::string(ver.substr(1).data()).c_str());
-	else std::numeric_limits<uint32_t>::max();
+	else return std::numeric_limits<uint32_t>::max();
 }
 
 struct raw_layer_t
@@ -508,6 +508,20 @@ struct raw_layer_t
 		mode(xcf_col_mode::rgb) {}
 };
 
+inline xcf_col_t blend(xcf_col_t const& dst, xcf_col_t const& src, uint8_t alpha)
+{
+	if (alpha == 0) return dst;
+	if (alpha == 255) return src;
+
+	uint8_t const alpha_inverse = 255 - alpha;
+
+	return xcf_col_t(
+		(src.r   * alpha + dst.r * alpha_inverse) >> 8,
+		(src.g * alpha + dst.g * alpha_inverse) >> 8,
+		(src.b  * alpha + dst.b * alpha_inverse) >> 8
+	);
+}
+
 void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 	size_t src_pos, size_t src_bpp, xcf_col_mode src_mode, uint8_t* src_buff,
 	size_t dst_pos, size_t dst_bpp, xcf_col_mode dst_mode, uint8_t* dst_buff, bool swap = false)
@@ -518,84 +532,90 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 		{
 			switch (src_bpp)
 			{
-			case 1:
-			{
-				switch (dst_bpp)
-				{
-				case 1:
-				{
-					dst_buff[dst_pos] = src_buff[src_pos];
+				case 1: {
+					switch (dst_bpp)
+					{
+						case 1: {
+							dst_buff[dst_pos] = src_buff[src_pos];
+						} break;
+						case 2: {
+							dst_buff[dst_pos * 2 + 0] = src_buff[src_pos];
+							dst_buff[dst_pos * 2 + 1] = 255;
+						} break;
+					}
 				} break;
-				case 2:
-				{
-					dst_buff[dst_pos * 2 + 0] = src_buff[src_pos];
-					dst_buff[dst_pos * 2 + 1] = 255;
-				} break;
-				}
-			} break;
-			case 2:
-			{
-				switch (dst_bpp)
-				{
 				case 2: {
-					dst_buff[dst_pos * 2 + 0] = src_buff[src_pos * 2 + 0];
-					dst_buff[dst_pos * 2 + 1] = src_buff[src_pos * 2 + 1];
+					switch (dst_bpp)
+					{
+						case 2: {
+							dst_buff[dst_pos * 2 + 0] = src_buff[src_pos * 2 + 0];
+							dst_buff[dst_pos * 2 + 1] = src_buff[src_pos * 2 + 1];
+						} break;
+					}
 				} break;
-				}
-			} break;
 			}
 		}
 		else if (dst_mode == xcf_col_mode::rgb)
 		{
 			switch (src_bpp)
 			{
-			case 1:
-			{
-				switch (dst_bpp)
-				{
-				case 3:
-				{
-					auto const col = palette[src_buff[src_pos]];
-					dst_buff[dst_pos * 3 + 0] = col.b;
-					dst_buff[dst_pos * 3 + 1] = col.g;
-					dst_buff[dst_pos * 3 + 2] = col.r;
-				} break;
-				case 4: {
-					auto const col = palette[src_buff[src_pos]];
-					dst_buff[dst_pos * 4 + 0] = col.b;
-					dst_buff[dst_pos * 4 + 1] = col.g;
-					dst_buff[dst_pos * 4 + 2] = col.r;
-					dst_buff[dst_pos * 4 + 3] = 255;
-				} break;
-				}
-			} break;
-			case 2:
-			{
-				switch (dst_bpp)
-				{
-				case 3: 
-				{
-					if (src_buff[src_pos * 2 + 1] > 0)
+				case 1: {
+					switch (dst_bpp)
 					{
-						auto const col = palette[src_buff[src_pos * 2 + 0]];
-						dst_buff[dst_pos * 3 + 0] = col.b;
-						dst_buff[dst_pos * 3 + 1] = col.g;
-						dst_buff[dst_pos * 3 + 2] = col.r;
+						case 3: {
+							auto const col = palette[src_buff[src_pos]];
+							dst_buff[dst_pos * 3 + 0] = col.b;
+							dst_buff[dst_pos * 3 + 1] = col.g;
+							dst_buff[dst_pos * 3 + 2] = col.r;
+						} break;
+						case 4: {
+							auto const col = palette[src_buff[src_pos]];
+							dst_buff[dst_pos * 4 + 0] = col.b;
+							dst_buff[dst_pos * 4 + 1] = col.g;
+							dst_buff[dst_pos * 4 + 2] = col.r;
+							dst_buff[dst_pos * 4 + 3] = 255;
+						} break;
 					}
 				} break;
-				case 4:
-				{
-					if (src_buff[src_pos * 2 + 1] > 0)
+				case 2: {
+					switch (dst_bpp)
 					{
-						auto const col = palette[src_buff[src_pos * 2 + 0]];
-						dst_buff[dst_pos * 4 + 0] = col.b;
-						dst_buff[dst_pos * 4 + 1] = col.g;
-						dst_buff[dst_pos * 4 + 2] = col.r;
-						dst_buff[dst_pos * 4 + 3] = src_buff[src_pos * 2 + 1];
+						case 3: {
+							if (src_buff[src_pos * 2 + 1] > 0)
+							{
+								auto const src = palette[src_buff[src_pos * 2 + 0]];
+								auto const dst = blend(
+									xcf_col_t(
+										dst_buff[dst_pos * 3 + 2],
+										dst_buff[dst_pos * 3 + 1],
+										dst_buff[dst_pos * 3 + 0]
+									), src, src_buff[src_pos * 2 + 1]);
+								
+								dst_buff[dst_pos * 3 + 0] = dst.b;
+								dst_buff[dst_pos * 3 + 1] = dst.g;
+								dst_buff[dst_pos * 3 + 2] = dst.r;
+								
+							}
+						} break;
+						case 4: {
+							if (src_buff[src_pos * 2 + 1] > 0)
+							{
+								auto const src = palette[src_buff[src_pos * 2 + 0]];
+								auto const dst = blend(
+									xcf_col_t(
+										dst_buff[dst_pos * 4 + 2],
+										dst_buff[dst_pos * 4 + 1],
+										dst_buff[dst_pos * 4 + 0]
+									), src, src_buff[src_pos * 2 + 1]);
+
+								dst_buff[dst_pos * 4 + 0] = dst.b;
+								dst_buff[dst_pos * 4 + 1] = dst.g;
+								dst_buff[dst_pos * 4 + 2] = dst.r;
+								dst_buff[dst_pos * 4 + 3] = src_buff[src_pos * 2 + 1];
+							}
+						} break;
 					}
 				} break;
-				}
-			} break;
 			}
 		}
 	}
@@ -605,86 +625,92 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 		{
 			switch (src_bpp)
 			{
-			case 3: 
-			{
-				switch (dst_bpp)
-				{
-				case 3: 
-				{
-					if (swap)
+				case 3: {
+					switch (dst_bpp)
 					{
-						dst_buff[dst_pos * 3 + 0] = src_buff[src_pos * 3 + 2];
-						dst_buff[dst_pos * 3 + 1] = src_buff[src_pos * 3 + 1];
-						dst_buff[dst_pos * 3 + 2] = src_buff[src_pos * 3 + 0];
-					}
-					else
-					{
-						dst_buff[dst_pos * 3 + 0] = src_buff[src_pos * 3 + 0];
-						dst_buff[dst_pos * 3 + 1] = src_buff[src_pos * 3 + 1];
-						dst_buff[dst_pos * 3 + 2] = src_buff[src_pos * 3 + 2];
-					}
-				} break;
-				case 4:
-				{
-					if (swap)
-					{
-						dst_buff[dst_pos * 4 + 0] = src_buff[src_pos * 3 + 2];
-						dst_buff[dst_pos * 4 + 1] = src_buff[src_pos * 3 + 1];
-						dst_buff[dst_pos * 4 + 2] = src_buff[src_pos * 3 + 0];
-					}
-					else
-					{
-						dst_buff[dst_pos * 4 + 0] = src_buff[src_pos * 3 + 0];
-						dst_buff[dst_pos * 4 + 1] = src_buff[src_pos * 3 + 1];
-						dst_buff[dst_pos * 4 + 2] = src_buff[src_pos * 3 + 2];
-					}
-					dst_buff[dst_pos * 4 + 3] = 255;
-				} break;
-				}
-			} break;
-			case 4: 
-			{
-				switch (dst_bpp)
-				{
-				case 3: 
-				{
-					if (src_buff[src_pos * 4 + 3] > 0)
-					{
-						if (swap)
-						{
-							dst_buff[dst_pos * 3 + 0] = src_buff[src_pos * 4 + 2];
-							dst_buff[dst_pos * 3 + 1] = src_buff[src_pos * 4 + 1];
-							dst_buff[dst_pos * 3 + 2] = src_buff[src_pos * 4 + 0];
-						}
-						else
-						{
-							dst_buff[dst_pos * 3 + 0] = src_buff[src_pos * 4 + 0];
-							dst_buff[dst_pos * 3 + 1] = src_buff[src_pos * 4 + 1];
-							dst_buff[dst_pos * 3 + 2] = src_buff[src_pos * 4 + 2];
-						}
+						case 3: {
+							if (swap)
+							{
+								dst_buff[dst_pos * 3 + 0] = src_buff[src_pos * 3 + 2];
+								dst_buff[dst_pos * 3 + 1] = src_buff[src_pos * 3 + 1];
+								dst_buff[dst_pos * 3 + 2] = src_buff[src_pos * 3 + 0];
+							}
+							else
+							{
+								dst_buff[dst_pos * 3 + 0] = src_buff[src_pos * 3 + 0];
+								dst_buff[dst_pos * 3 + 1] = src_buff[src_pos * 3 + 1];
+								dst_buff[dst_pos * 3 + 2] = src_buff[src_pos * 3 + 2];
+							}
+						} break;
+						case 4: {
+							if (swap)
+							{
+								dst_buff[dst_pos * 4 + 0] = src_buff[src_pos * 3 + 2];
+								dst_buff[dst_pos * 4 + 1] = src_buff[src_pos * 3 + 1];
+								dst_buff[dst_pos * 4 + 2] = src_buff[src_pos * 3 + 0];
+							}
+							else
+							{
+								dst_buff[dst_pos * 4 + 0] = src_buff[src_pos * 3 + 0];
+								dst_buff[dst_pos * 4 + 1] = src_buff[src_pos * 3 + 1];
+								dst_buff[dst_pos * 4 + 2] = src_buff[src_pos * 3 + 2];
+							}
+							dst_buff[dst_pos * 4 + 3] = 255;
+						} break;
 					}
 				} break;
-				case 4: 
-				{
-					if (src_buff[src_pos * 4 + 3] > 0)
+				case 4: {
+					switch (dst_bpp)
 					{
-						if (swap)
-						{
-							dst_buff[dst_pos * 4 + 0] = src_buff[src_pos * 4 + 2];
-							dst_buff[dst_pos * 4 + 1] = src_buff[src_pos * 4 + 1];
-							dst_buff[dst_pos * 4 + 2] = src_buff[src_pos * 4 + 0];
-						}
-						else
-						{
-							dst_buff[dst_pos * 4 + 0] = src_buff[src_pos * 4 + 0];
-							dst_buff[dst_pos * 4 + 1] = src_buff[src_pos * 4 + 1];
-							dst_buff[dst_pos * 4 + 2] = src_buff[src_pos * 4 + 2];
-						}
-						dst_buff[dst_pos * 4 + 3] = 255;
+						case 3: {
+							if (src_buff[src_pos * 4 + 3] > 0)
+							{
+								if (swap)
+								{
+									dst_buff[dst_pos * 3 + 0] = src_buff[src_pos * 4 + 2];
+									dst_buff[dst_pos * 3 + 1] = src_buff[src_pos * 4 + 1];
+									dst_buff[dst_pos * 3 + 2] = src_buff[src_pos * 4 + 0];
+								}
+								else
+								{
+									dst_buff[dst_pos * 3 + 0] = src_buff[src_pos * 4 + 0];
+									dst_buff[dst_pos * 3 + 1] = src_buff[src_pos * 4 + 1];
+									dst_buff[dst_pos * 3 + 2] = src_buff[src_pos * 4 + 2];
+								}
+							}
+						} break;
+						case 4: {
+							if (src_buff[src_pos * 4 + 3] > 0)
+							{
+								auto const dst = blend(
+									xcf_col_t(
+										dst_buff[dst_pos * 4 + 2],
+										dst_buff[dst_pos * 4 + 1],
+										dst_buff[dst_pos * 4 + 0]
+									), 
+									xcf_col_t(
+										src_buff[src_pos * 4 + 2],
+										src_buff[src_pos * 4 + 1],
+										src_buff[src_pos * 4 + 0]
+									),	src_buff[src_pos * 4 + 3]);
+
+								if (swap)
+								{
+									dst_buff[dst_pos * 4 + 0] = dst.r;
+									dst_buff[dst_pos * 4 + 1] = dst.g;
+									dst_buff[dst_pos * 4 + 2] = dst.b;
+								}
+								else
+								{
+									dst_buff[dst_pos * 4 + 0] = dst.b;
+									dst_buff[dst_pos * 4 + 1] = dst.g;
+									dst_buff[dst_pos * 4 + 2] = dst.r;
+								}
+								dst_buff[dst_pos * 4 + 3] = 255;
+							}
+						} break;
 					}
 				} break;
-				}
-			} break;
 			}
 		}
 	}
@@ -697,14 +723,12 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 			case 1: {
 				switch (dst_bpp)
 				{
-				case 3: 
-				{
+				case 3: {
 					dst_buff[dst_pos * 3 + 0] = src_buff[src_pos];
 					dst_buff[dst_pos * 3 + 1] = src_buff[src_pos];
 					dst_buff[dst_pos * 3 + 2] = src_buff[src_pos];
 				} break;
-				case 4: 
-				{
+				case 4: {
 					dst_buff[dst_pos * 4 + 0] = src_buff[src_pos];
 					dst_buff[dst_pos * 4 + 1] = src_buff[src_pos];
 					dst_buff[dst_pos * 4 + 2] = src_buff[src_pos];
@@ -712,12 +736,10 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 				} break;
 				}
 			} break;
-			case 2: 
-			{
+			case 2: {
 				switch (dst_bpp)
 				{
-				case 3: 
-				{
+				case 3: {
 					if (src_buff[src_pos * 2 + 1] > 0)
 					{
 						auto const scale = src_buff[src_pos * 2 + 0];
@@ -726,8 +748,7 @@ void draw_pixel(std::array<xcf_col_t, 256> const& palette,
 						dst_buff[dst_pos * 3 + 2] = scale;
 					}
 				} break;
-				case 4: 
-				{
+				case 4: {
 					if (src_buff[src_pos * 2 + 1] > 0)
 					{
 						auto const scale = src_buff[src_pos * 2 + 0];
